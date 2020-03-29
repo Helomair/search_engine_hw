@@ -1,5 +1,6 @@
 <?php 
     require_once __DIR__ . '/paginate.class.php';
+    require_once __DIR__ . '/gaisdbClient.class.php';
 ?>
 
 <!DOCTYPE html>
@@ -15,7 +16,7 @@
 </head>
 <body>
   <div class="container">
-        <form class="form-horizontal" action="http://localhost/es_query_ui/index.php" method="GET">
+        <form class="form-horizontal" action="./index.php" method="GET">
             <div class="form-group">
                 <h1><label for="SearchTextInputLabel">Search it !</label></h1>
                 <input type="text" class="form-control" id="SearchTextInput" name="SearchText">
@@ -29,37 +30,28 @@
             <div class="list-group">
             <?php
                 if ($_GET["SearchText"] != null) {
-                    $header[] = "Content-Type: application/json";
+                    $client = new GaisdbClient("http://nudb1.ddns.net:5804/nudb/query", "search_engine");
 
                     // Search info.
-                    $base_url = "http://nudb1.ddns.net:5804/nudb/query";
-                    $db       = "Ptt_jpn";
                     $query    = urlencode( ( isset( $_GET["SearchText"]) ) ? $_GET["SearchText"] : "" );
                     $page     = ( isset( $_GET["page"]) ) ? $_GET["page"] : 1;
-                    $ps       = "10";
-                    $out_type = "json";
 
-                    $url = $base_url;
-                    $url .= "?db=" . $db;
-                    $url .= "&q=" . $query;
-                    $url .= "&p=" . $page ;
-                    $url .= "&ps=" . $ps   ;
-                    $url .= "&out=" . $out_type;
-                    $ch = curl_init();
-                    curl_setopt($ch, CURLOPT_URL, $url);
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                    $response = curl_exec($ch);
-                    $result = json_decode($response);
-                    curl_close($ch);
+                    // Search.
+                    $result   = $client->get_recs($query, $page);
+                    $segments = $client->get_segments($query, 1);
 
+                    // Parse result.
                     $total = $result->result->cnt;
                     foreach ($result->result->recs as $rs) {
                         $rec = $rs->rec;
+                        $rec->title = $client->highlight_segments($rec->title);
+                        $rec->body = $client->highlight_segments($rec->body);
                         echo '
-                        <a href="' .$rec->href . '" target="_blank" class="list-group-item list-group-item-action">
+                        <a href="' .$rec->url . '" target="_blank" class="list-group-item list-group-item-action">
                             <div class="d-flex w-100 justify-content-between">
                                 <h5 class="mb-1">'. $rec->title .'</h5>
                             </div>
+                            <small> ' . $rec->body . '</small>
                         </a> 
                         ';
                     }
